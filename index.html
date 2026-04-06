@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+  <title>GitLive</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#165DFF',
+            secondary: '#FB7299',
+            dark: '#121212',
+            'deep-gray': '#1E1E1E', // 深灰色主背景
+            'gray-dark': '#2D2D2D'   // 辅助深灰色
+          },
+          fontFamily: {
+            inter: ['Inter', 'system-ui', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .transition-smooth {
+        transition: all 0.3s ease-in-out;
+      }
+    }
+  </style>
+</head>
+<!-- 背景改为深灰色 -->
+<body class="font-inter bg-deep-gray text-gray-200 min-h-screen m-0 p-0">
+  <!-- 导航栏：进一步缩减内边距，消除底部多余空间 -->
+  <header class="bg-gray-dark text-white shadow-sm">
+    <div class="container mx-auto px-4 py-1 flex justify-between items-center"> <!-- py-1保持高度，无额外底部间距 -->
+      <div class="flex items-center space-x-2">
+        <i class="fa fa-play-circle text-secondary text-xl"></i>
+        <h1 class="text-xl font-bold">Live</h1>
+      </div>
+      <nav>
+        <a href="#" class="text-white/80 hover:text-secondary transition-smooth px-3 py-1">
+        </a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- 主内容区：几乎消除顶部内边距，让播放器贴近导航栏 -->
+  <main class="container mx-auto px-2 py-1"> <!-- py-1 最小化顶部间距 -->
+    <!-- 视频播放器区域：消除顶部margin，贴近导航栏 -->
+    <section class="mt-0 mb-4 md:mb-6"> <!-- 缩减底部间距 -->
+      <div class="bg-transparent">
+        <!-- 播放器容器：无额外内边距，顶部紧贴导航栏 -->
+        <div class="aspect-video bg-gray-dark rounded-none overflow-hidden relative flex items-center justify-center w-full" id="videoContainer">
+          <!-- 强化高分辨率：参数优先级提升，明确指定bvid和high_quality=1 -->
+          <iframe id="videoPlayer" 
+                  width="100%" 
+                  height="100%" 
+                  src="https://player.bilibili.com/player.html?high_quality=1&isOutside=true&bvid=BV1gr4y1L7Ho&page=1" 
+                  title="视频播放器" 
+                  frameborder="0" 
+                  scrolling="no"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen; scripts"
+                  referrerpolicy="strict-origin-when-cross-origin"
+                  onload="hideLoading()"
+                  onerror="handlePlayerError()">
+          </iframe>
+          
+          <!-- 加载状态指示器 -->
+          <div id="loadingIndicator" class="hidden absolute inset-0 bg-black/30 flex flex-col items-center justify-center">
+            <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-secondary mb-4"></div>
+            <p class="text-white font-medium">视频加载中（默认高分辨率）...</p>
+          </div>
+          
+          <!-- 错误提示区 -->
+          <div id="errorDisplay" class="hidden absolute inset-0 bg-red-900/30 flex flex-col items-center justify-center p-6 text-center">
+            <i class="fa fa-exclamation-circle text-red-400 text-5xl mb-4"></i>
+            <h3 class="text-xl font-bold text-red-300 mb-2">视频播放失败</h3>
+            <p id="errorMessage" class="text-red-200">请检查视频嵌入代码是否正确</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 视频代码输入区：紧凑布局优化 -->
+    <section>
+      <div class="bg-gray-dark rounded-lg p-3 md:p-4"> <!-- 缩减外层内边距 -->        
+        <!-- 核心布局：输入框左、仅保留Update按钮（右侧） -->
+        <form id="videoForm" class="flex flex-col md:flex-row gap-3 items-end">
+          <!-- 输入框区域：占满剩余宽度 -->
+          <div class="flex-1">
+            <!-- 输入框默认值强化高分辨率参数 -->
+            <textarea id="videoCode" 
+                      rows="3" 
+                      class="w-full px-3 py-2 border border-gray-700 bg-deep-gray rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-smooth resize-none text-gray-200 text-sm"
+                      placeholder='例如: <iframe src="https://player.bilibili.com/player.html?high_quality=1&isOutside=true&bvid=..."></iframe>'>
+<iframe src="https://player.bilibili.com/player.html?high_quality=1&isOutside=true&bvid=BV1gr4y1L7Ho&page=1" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true" allow="scripts"></iframe>
+            </textarea>
+          </div>
+          
+          <!-- 按钮区域：仅保留Update按钮 -->
+          <div class="flex-shrink-0 w-full md:w-auto"> <!-- 移动端占满宽度，PC端固定宽度 -->
+            <button type="submit" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-medium transition-smooth text-sm flex items-center justify-center w-full md:w-auto">
+              <i class="fa fa-refresh mr-1.5"></i> Update
+            </button>
+          </div>
+        </form>
+
+        <!-- 帮助说明：明确高分辨率生效逻辑 -->
+        <div class="bg-blue-900/20 border-l-4 border-primary p-3 mt-3 rounded-r text-xs">
+          <h3 class="font-medium text-primary flex items-center">
+            <i class="fa fa-info-circle mr-1.5"></i>Help
+          </h3>
+          <div class="mt-1.5 text-gray-300 space-y-2">
+            <div>
+              <span class="font-medium text-blue-300">高分辨率说明：</span>
+              <ul class="list-disc list-inside mt-0.5 space-y-0.5 pl-1">
+                <li>默认启用 <code class="bg-gray-700 px-0.5 rounded text-gray-200 text-xs">high_quality=1</code>，自动加载最高可用分辨率（无需登录）</li>
+                <li>支持公开高分辨率（如1080P 60帧），会员专属分辨率（4K/1080P+）需登录会员</li>
+                <li>若视频仅支持720P，则自动加载720P（参数不影响播放）</li>
+              </ul>
+            </div>
+            <div>
+              <span class="font-medium text-blue-300">BiliBili：</span>
+              <ul class="list-disc list-inside mt-0.5 space-y-0.5 pl-1">
+                <li>必须包含 <code class="bg-gray-700 px-0.5 rounded text-gray-200 text-xs">high_quality=1</code> + <code class="bg-gray-700 px-0.5 rounded text-gray-200 text-xs">isOutside=true</code> + <code class="bg-gray-700 px-0.5 rounded text-gray-200 text-xs">https://</code></li>
+              </ul>
+            </div>
+            <div>
+              <span class="font-medium text-blue-300">YouTube：</span>
+              <ul class="list-disc list-inside mt-0.5 pl-1">
+                <li>格式 <code class="bg-gray-700 px-0.5 rounded text-gray-200 text-xs">https://www.youtube.com/embed/视频ID</code>（自动最高分辨率）</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 消息提示：缩减间距 -->
+        <div id="message" class="mt-2 hidden p-2 rounded-lg text-xs"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- 页脚：缩减高度和间距 -->
+  <footer class="bg-gray-dark text-white/50 py-2 mt-4">
+    <div class="container mx-auto px-4 text-center text-xs">
+      <p>© 2025 Live </p>
+    </div>
+  </footer>
+
+  <script>
+    // 获取DOM元素（移除resetBtn相关引用）
+    const videoForm = document.getElementById('videoForm');
+    const videoCode = document.getElementById('videoCode');
+    const videoContainer = document.getElementById('videoContainer');
+    let videoPlayer = document.getElementById('videoPlayer');
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const errorDisplay = document.getElementById('errorDisplay');
+    const errorMessage = document.getElementById('errorMessage');
+    const message = document.getElementById('message');
+    
+    // 保存默认视频代码（更新为强化高分辨率的代码）
+    const defaultVideoCode = videoCode.value;
+    
+    // 显示消息（适配小字号）
+    function showMessage(text, isError = false) {
+      message.textContent = text;
+      message.classList.remove('hidden', 'bg-green-900/30', 'text-green-300', 'bg-red-900/30', 'text-red-300');
+      
+      if (isError) {
+        message.classList.add('bg-red-900/30', 'text-red-300');
+      } else {
+        message.classList.add('bg-green-900/30', 'text-green-300');
+      }
+      
+      setTimeout(() => {
+        message.classList.add('hidden');
+      }, 3000);
+    }
+    
+    // 隐藏加载状态（提示高分辨率）
+    function hideLoading() {
+      loadingIndicator.classList.add('hidden');
+      errorDisplay.classList.add('hidden');
+      showMessage('视频加载成功（已启用高分辨率）');
+    }
+    
+    // 处理播放器错误（补充高分辨率相关提示）
+    function handlePlayerError() {
+      loadingIndicator.classList.add('hidden');
+      errorDisplay.classList.remove('hidden');
+      
+      if (videoPlayer.src.includes('bilibili.com')) {
+        errorMessage.innerHTML = 'B站视频播放失败：<br>1. 请检查是否包含 high_quality=1 和 isOutside=true 参数<br>2. 确认使用 https:// 协议<br>3. 原视频需支持公开高分辨率（如1080P）<br>4. 尝试更换其他视频';
+      } else if (videoPlayer.src.includes('youtube.com')) {
+        errorMessage.innerHTML = 'YouTube视频播放失败：<br>1. 请检查视频是否开启"允许嵌入"<br>2. 确保使用 https:// 协议<br>3. 尝试在localhost/HTTPS环境访问';
+      } else {
+        errorMessage.textContent = '视频无法播放：请检查嵌入代码格式或更换视频';
+      }
+    }
+    
+    // 优化视频代码：强制添加high_quality=1（确保高分辨率生效）
+    function optimizeVideoCode(code) {
+      let optimized = code;
+      
+      // 1. 补全B站协议
+      if (optimized.includes('bilibili.com') && optimized.includes('src="//')) {
+        optimized = optimized.replace('src="//', 'src="https://');
+      }
+      
+      // 2. 强制添加high_quality=1（即使用户删除，也自动补全）
+      if (optimized.includes('bilibili.com/player.html')) {
+        // 先移除已有的high_quality参数（避免重复）
+        optimized = optimized.replace(/&high_quality=\d+|high_quality=\d+&?/, '');
+        // 优先添加到URL开头（提升优先级）
+        if (optimized.includes('?')) {
+          optimized = optimized.replace('player.html?', 'player.html?high_quality=1&');
+        } else {
+          optimized = optimized.replace('player.html', 'player.html?high_quality=1');
+        }
+      }
+      
+      // 3. 确保isOutside=true存在
+      if (optimized.includes('bilibili.com/player.html') && !optimized.includes('isOutside=true')) {
+        optimized = optimized.replace('player.html?', 'player.html?isOutside=true&').replace('&high_quality=1&isOutside=true', '&high_quality=1');
+      }
+      
+      // 4. YouTube相关优化（保持不变）
+      if (optimized.includes('youtube.com/embed') && !optimized.includes('referrerpolicy')) {
+        optimized = optimized.replace('<iframe', '<iframe referrerpolicy="strict-origin-when-cross-origin"');
+      }
+      
+      // 5. 移除抑制属性（保持不变）
+      optimized = optimized.replace(/noreferrer/g, '');
+      
+      return optimized;
+    }
+    
+    // 更换视频（保持不变）
+    function changeVideo(code) {
+      const optimizedCode = optimizeVideoCode(code);
+      
+      if (!optimizedCode.includes('<iframe') || !optimizedCode.includes('</iframe>')) {
+        showMessage('请输入有效的视频嵌入代码（需包含iframe标签）', true);
+        return false;
+      }
+      
+      loadingIndicator.classList.remove('hidden');
+      errorDisplay.classList.add('hidden');
+      
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = optimizedCode;
+      const newIframe = tempDiv.querySelector('iframe');
+      
+      if (!newIframe) {
+        loadingIndicator.classList.add('hidden');
+        showMessage('未能从代码中找到有效的视频播放器', true);
+        return false;
+      }
+      
+      newIframe.width = '100%';
+      newIframe.height = '100%';
+      newIframe.id = 'videoPlayer';
+      newIframe.frameborder = '0';
+      newIframe.scrolling = 'no';
+      
+      const existingAllow = newIframe.allow || '';
+      newIframe.allow = existingAllow + '; accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen; scripts';
+      
+      newIframe.onload = hideLoading;
+      newIframe.onerror = handlePlayerError;
+      
+      videoContainer.replaceChild(newIframe, videoPlayer);
+      videoPlayer = newIframe;
+      
+      return true;
+    }
+    
+    // 表单提交（保持不变）
+    videoForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const code = videoCode.value.trim();
+      
+      if (!code) {
+        showMessage('请输入视频嵌入代码', true);
+        return;
+      }
+      
+      changeVideo(code);
+    });
+    
+    // 初始化（提示高分辨率已启用）
+    window.addEventListener('load', () => {
+      const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      if (!isSecure) {
+        showMessage('提示：YouTube视频在HTTPS/localhost环境下播放更稳定', false);
+      } else {
+        showMessage('就绪：默认启用高分辨率，支持B站/YouTube视频嵌入', false);
+      }
+    });
+  </script>
+</body>
+</html>
