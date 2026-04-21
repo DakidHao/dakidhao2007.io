@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="dark">
+    <title>跑步节拍器 - iOS 版</title>
+    <style>
+        /* 全局样式 - 半透明深色背景 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Helvetica, Arial, sans-serif;
+        }
+
+        html, body {
+            /* 半透明深色背景 - iOS风格深色模式 */
+            background-color: #1c1c1e;
+            background: linear-gradient(135deg, rgba(30,30,32,0.95), rgba(18,18,20,0.98));
+            height: 100%;
+            width: 100%;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+            overflow-x: hidden;
+        }
+
+        body {
+            max-width: 100%;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 选择器区域 - 适配深色背景 */
+        .timer-selector {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin: 10px auto;
+            width: calc(100% - 32px);
+            max-width: 500px;
+            flex-wrap: wrap;
+            background: rgba(44, 44, 46, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            padding: 16px;
+            border-radius: 20px;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(72, 72, 74, 0.6);
+        }
+
+        .select-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex: 1;
+            min-width: 140px;
+        }
+
+        .select-group label {
+            font-size: 14px;
+            color: #a1a1a6;
+            font-weight: 500;
+            margin-left: 2px;
+        }
+
+        /* iOS风格下拉选择框 - 深色模式适配 */
+        select {
+            padding: 14px 16px;
+            font-size: 17px;
+            border: 1px solid #3a3a3c;
+            border-radius: 12px;
+            background-color: #2c2c2e;
+            color: #ffffff;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23a1a1a6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            background-size: 16px;
+            transition: all 0.2s ease;
+            touch-action: manipulation;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #0a84ff;
+            box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.2);
+        }
+
+        select:disabled {
+            background-color: #3a3a3c;
+            color: #8e8e93;
+            opacity: 0.8;
+        }
+
+        /* iOS风格按钮 - 深色模式适配 */
+        .btn {
+            padding: 14px 28px;
+            font-size: 17px;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            min-width: 120px;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn-primary {
+            background-color: #0a84ff;
+            color: white;
+        }
+
+        .btn-primary:disabled {
+            background-color: #004699;
+            color: white;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        .btn-primary:not(:disabled):active {
+            background-color: #0066cc;
+            transform: scale(0.98);
+        }
+
+        .btn-danger {
+            background-color: #ff3b30;
+            color: white;
+        }
+
+        .btn-danger:active {
+            background-color: #cc2e25;
+            transform: scale(0.98);
+        }
+
+        /* 倒计时显示区域 - 最大化显示 */
+        .timer-display {
+            text-align: center;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin: 10px 0;
+            padding: 0 10px;
+        }
+
+        .timer-title {
+            font-size: 28px;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 20px;
+            letter-spacing: -0.5px;
+        }
+
+        /* 倒计时圆圈 - 极致放大 */
+        .timer-circle {
+            /* 大幅放大：移动端占95vw，最大500px */
+            width: min(500px, 95vw);
+            height: min(500px, 95vw);
+            border-radius: 50%;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            background: rgba(44, 44, 46, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(72, 72, 74, 0.8);
+            position: relative;
+        }
+
+        .timer-circle::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(72,72,74,0.2), rgba(0,0,0,0.3));
+            z-index: -1;
+        }
+
+        /* 倒计时数字 - 放大一倍（原基础上×2） */
+        .timer-text {
+            /* 数字极致放大：移动端50vw，最大180px */
+            font-size: min(180px, 50vw);
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: -4px;
+            transition: color 0.5s ease;
+            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            line-height: 1;
+        }
+
+        /* 红绿背景色 - 深色模式适配 */
+        .timer-circle.red {
+            background: rgba(255, 59, 48, 0.2);
+            border-color: rgba(255, 59, 48, 0.4);
+        }
+
+        .timer-circle.red .timer-text {
+            color: #ff6b6b;
+        }
+
+        .timer-circle.green {
+            background: rgba(52, 199, 89, 0.2);
+            border-color: rgba(52, 199, 89, 0.4);
+        }
+
+        .timer-circle.green .timer-text {
+            font-size: min(180px, 50vw);
+            color: #66e088;
+        }
+
+        /* 脚印动画区域 - 放大一倍 */
+        .foot-steps {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 80px;
+            margin-top: 40px;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .foot-steps.active {
+            opacity: 1;
+        }
+
+        /* 脚印尺寸放大一倍（原基础上×2） */
+        .foot {
+            width: min(140px, 36vw);
+            height: min(140px, 36vw);
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            transition: all 0.2s ease;
+            opacity: 0.4;
+        }
+
+        .foot.left {
+            background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff'%3E%3Cpath d='M19 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-1.45 5.11L17 14.2V19h2v-1.76l1.85 1.85c.22-.14.4-.36.5-.62V12.9c-.98-.3-1.74-1.03-2.1-1.97l-1.55 1.55c.32.48.55 1.03.7 1.62zM3 12c0 2.21 1.79 4 4 4 .88 0 1.68-.31 2.35-.84l1.41 1.41c-1.08.95-2.51 1.43-4.01 1.43-3.31 0-6-2.69-6-6s2.69-6 6-6c1.5 0 2.93.48 4.01 1.43l-1.41 1.41C8.68 6.31 7.88 6 7 6c-2.21 0-4 1.79-4 4zm9.27-8.97c-.22-.19-.49-.3-.76-.3-.27 0-.54.11-.76.3l-1.4 1.4 1.4 1.4 1.4-1.4zM11 7.5V2.5l4 4-4 4V9c3.31 0 6 2.69 6 6 0 .55-.08 1.08-.23 1.6l1.45 1.45C18.92 16.79 19 16.42 19 16c0-3.87-3.13-7-7-7z'/%3E%3C/svg%3E");
+        }
+
+        .foot.right {
+            background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ffffff'%3E%3Cpath d='M5 10c1.1 0 2 .9 2 2s-.9 2-2 2-2-.9-2-2 .9-2 2-2zm1.45 5.11L7 14.2V19H5v-1.76L3.15 19c-.22-.14-.4-.36-.5-.62V12.9c.98-.3 1.74-1.03 2.1-1.97l1.55 1.55c-.32.48-.55 1.03-.7 1.62zM21 12c0-2.21-1.79-4-4-4-.88 0-1.68.31-2.35.84l-1.41-1.41c1.08-.95 2.51-1.43 4.01-1.43 3.31 0 6 2.69 6 6s-2.69 6-6 6c-1.5 0-2.93-.48-4.01-1.43l1.41-1.41c.67.53 1.47.84 2.35.84 2.21 0 4-1.79 4-4zm-9.27-8.97c.22-.19.49-.3.76-.3.27 0 .54.11.76.3l1.4 1.4-1.4 1.4-1.4-1.4zM13 7.5V2.5l-4 4 4 4V9c-3.31 0-6 2.69-6 6 0 .55.08 1.08.23 1.6L7.68 19c-.15-.71-.23-1.45-.23-2.2 0-3.87 3.13-7 7-7z'/%3E%3C/svg%3E");
+        }
+
+        .foot.active {
+            opacity: 1;
+            transform: scale(1.2);
+            filter: drop-shadow(0 4px 16px rgba(255,255,255,0.3));
+        }
+
+        /* 控制按钮区域 - 深色模式适配 */
+        .control-btn {
+            text-align: center;
+            margin-top: auto;
+            padding: 20px env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+            width: 100%;
+        }
+
+        /* 横屏适配 - 放大后的尺寸适配 */
+        @media (orientation: landscape) and (max-height: 600px) {
+            .timer-circle {
+                width: min(400px, 90vh);
+                height: min(400px, 90vh);
+            }
+            
+            .timer-text {
+                font-size: min(140px, 40vh);
+            }
+            
+            .foot-steps {
+                margin-top: 20px;
+                gap: 40px;
+            }
+            
+            .foot {
+                width: min(100px, 25vh);
+                height: min(100px, 25vh);
+            }
+        }
+
+        /* 小屏设备适配 */
+        @media (max-width: 375px) {
+            .timer-selector {
+                gap: 12px;
+                padding: 12px;
+            }
+            
+            .btn {
+                width: 100%;
+                margin-top: 8px;
+            }
+            
+            .foot-steps {
+                gap: 60px;
+            }
+        }
+
+        /* 灵动岛适配 */
+        @supports (height: env(dynamic-height)) {
+            body {
+                padding-top: env(safe-area-inset-top);
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 计时选择区域 -->
+    <div class="timer-selector">
+        <div class="select-group">
+            <label for="timer1">选择计时1</label>
+            <select id="timer1">
+                <option value="">请选择计时</option>
+                <!-- 动态生成1-20分钟的选项 -->
+            </select>
+        </div>
+        <div class="select-group">
+            <label for="timer2">选择计时2</label>
+            <select id="timer2" disabled>
+                <option value="">请选择计时</option>
+                <!-- 动态生成1-20分钟的选项 -->
+            </select>
+        </div>
+        <button id="startBtn" class="btn btn-primary" disabled>开始计时</button>
+    </div>
+
+    <!-- 倒计时显示区域 -->
+    <div class="timer-display">
+        <div class="timer-title">跑步节拍器</div>
+        <div class="timer-circle" id="timerCircle">
+            <div class="timer-text" id="timerText">00:00</div>
+        </div>
+        <!-- 脚印动画区域 -->
+        <div class="foot-steps" id="footSteps">
+            <div class="foot left" id="leftFoot"></div>
+            <div class="foot right" id="rightFoot"></div>
+        </div>
+    </div>
+
+    <!-- 结束按钮区域 -->
+    <div class="control-btn">
+        <button id="stopBtn" class="btn btn-danger" style="display: none;">结束计时</button>
+    </div>
+
+    <script>
+        // 获取DOM元素
+        const timer1Select = document.getElementById('timer1');
+        const timer2Select = document.getElementById('timer2');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const timerCircle = document.getElementById('timerCircle');
+        const timerText = document.getElementById('timerText');
+        const footSteps = document.getElementById('footSteps');
+        const leftFoot = document.getElementById('leftFoot');
+        const rightFoot = document.getElementById('rightFoot');
+
+        // 全局变量
+        let countdownInterval = null; // 倒计时定时器
+        let metronomeInterval = null; // 节拍器定时器
+        let currentTimer = 1; // 当前正在运行的是计时1(1)还是计时2(2)
+        let totalSeconds = 0; // 当前倒计时的总秒数
+        let timer1Minutes = 0; // 计时1的分钟数
+        let timer2Minutes = 0; // 计时2的分钟数
+        let audioContext = null; // Web Audio API 上下文
+        let isLeftFoot = true; // 当前显示左脚印还是右脚印
+        let isRedColor = true; // 单计时模式下当前背景色（红/绿）
+
+        // 初始化 - 生成1-20分钟的选项
+        function initSelectOptions() {
+            for (let i = 1; i <= 20; i++) {
+                // 为计时1添加选项
+                const option1 = document.createElement('option');
+                option1.value = i;
+                option1.textContent = `${i}分钟`;
+                timer1Select.appendChild(option1);
+
+                // 为计时2添加选项
+                const option2 = document.createElement('option');
+                option2.value = i;
+                option2.textContent = `${i}分钟`;
+                timer2Select.appendChild(option2);
+            }
+        }
+
+        // 初始化音频上下文
+        function initAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        // 播放节拍器声音
+        function playMetronomeSound() {
+            if (!audioContext) return;
+            
+            // 创建振荡器（880Hz 高音A，更清晰）
+            const oscillator = audioContext.createOscillator();
+            oscillator.type = 'square'; // 方波，声音更洪亮
+            oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
+            
+            // 音量控制 - 0.5（适合户外）
+            const gainNode = audioContext.createGain();
+            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime); 
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.15);
+            
+            // 连接节点并播放
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.15);
+            
+            // 切换脚印动画
+            toggleFootAnimation();
+        }
+
+        // 切换左右脚印动画
+        function toggleFootAnimation() {
+            leftFoot.classList.remove('active');
+            rightFoot.classList.remove('active');
+            
+            if (isLeftFoot) {
+                leftFoot.classList.add('active');
+            } else {
+                rightFoot.classList.add('active');
+            }
+            
+            isLeftFoot = !isLeftFoot;
+        }
+
+        // 单计时模式下切换背景色
+        function toggleSingleTimerColor() {
+            if (isRedColor) {
+                timerCircle.className = 'timer-circle green';
+            } else {
+                timerCircle.className = 'timer-circle red';
+            }
+            isRedColor = !isRedColor;
+        }
+
+        // 格式化时间显示
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // 开始倒计时
+        function startCountdown() {
+            // 初始化音频上下文
+            initAudioContext();
+            
+            // 设置初始状态
+            timer1Minutes = parseInt(timer1Select.value);
+            timer2Minutes = timer2Select.value ? parseInt(timer2Select.value) : 0;
+            
+            // 初始从计时1开始
+            currentTimer = 1;
+            totalSeconds = timer1Minutes * 60;
+            isRedColor = true;
+            
+            // 更新显示
+            timerText.textContent = formatTime(totalSeconds);
+            timerCircle.className = 'timer-circle red';
+            
+            // 显示脚印区域
+            footSteps.classList.add('active');
+            
+            // 禁用选择框和开始按钮，显示结束按钮
+            timer1Select.disabled = true;
+            timer2Select.disabled = true;
+            startBtn.disabled = true;
+            stopBtn.style.display = 'inline-block';
+
+            // 启动倒计时
+            countdownInterval = setInterval(() => {
+                totalSeconds--;
+                
+                // 更新显示
+                timerText.textContent = formatTime(totalSeconds);
+
+                // 倒计时结束处理
+                if (totalSeconds <= 0) {
+                    // 单计时模式（只有计时1）
+                    if (timer2Minutes === 0) {
+                        totalSeconds = timer1Minutes * 60;
+                        // 切换背景色（红绿交替）
+                        toggleSingleTimerColor();
+                    } 
+                    // 双计时模式
+                    else if (currentTimer === 1) {
+                        currentTimer = 2;
+                        totalSeconds = timer2Minutes * 60;
+                        timerCircle.className = 'timer-circle green';
+                    } 
+                    else {
+                        currentTimer = 1;
+                        totalSeconds = timer1Minutes * 60;
+                        timerCircle.className = 'timer-circle red';
+                    }
+                    timerText.textContent = formatTime(totalSeconds);
+                }
+            }, 1000);
+
+            // 启动节拍器 - 175 BPM
+            const bpm = 175;
+            const intervalMs = 60000 / bpm;
+            metronomeInterval = setInterval(playMetronomeSound, intervalMs);
+            
+            // 立即播放第一声节拍并显示第一个脚印
+            playMetronomeSound();
+        }
+
+        // 停止倒计时
+        function stopCountdown() {
+            // 清除所有定时器
+            if (countdownInterval) clearInterval(countdownInterval);
+            if (metronomeInterval) clearInterval(metronomeInterval);
+            
+            // 关闭音频上下文
+            if (audioContext) {
+                audioContext.close().then(() => {
+                    audioContext = null;
+                });
+            }
+
+            // 重置脚印和颜色状态
+            footSteps.classList.remove('active');
+            leftFoot.classList.remove('active');
+            rightFoot.classList.remove('active');
+            isLeftFoot = true;
+            isRedColor = true;
+
+            // 恢复初始状态
+            timer1Select.disabled = false;
+            timer2Select.disabled = !timer1Select.value;
+            timer1Select.value = '';
+            timer2Select.value = '';
+            startBtn.disabled = true;
+            stopBtn.style.display = 'none';
+            timerText.textContent = '00:00';
+            timerCircle.className = 'timer-circle';
+            currentTimer = 1;
+            totalSeconds = 0;
+        }
+
+        // 监听计时1选择变化
+        timer1Select.addEventListener('change', function() {
+            timer2Select.disabled = !this.value;
+            startBtn.disabled = !this.value;
+            if (!this.value) timer2Select.value = '';
+        });
+
+        // 监听计时2选择变化
+        timer2Select.addEventListener('change', function() {
+            startBtn.disabled = !timer1Select.value;
+        });
+
+        // 按钮点击事件
+        startBtn.addEventListener('click', startCountdown);
+        stopBtn.addEventListener('click', stopCountdown);
+
+        // 页面刷新/关闭时停止所有功能
+        window.addEventListener('beforeunload', function() {
+            if (countdownInterval) clearInterval(countdownInterval);
+            if (metronomeInterval) clearInterval(metronomeInterval);
+            if (audioContext) audioContext.close();
+        });
+
+        // iOS触摸优化
+        document.addEventListener('touchstart', function() {}, { passive: true });
+
+        // 初始化
+        initSelectOptions();
+    </script>
+</body>
+</html>
